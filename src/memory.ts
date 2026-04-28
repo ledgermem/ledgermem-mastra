@@ -165,10 +165,13 @@ export class LedgerMemMemory {
     >;
     // Enforce thread/resource isolation in-app even if the server returns
     // matches across threads — prevents cross-thread/cross-user context bleed.
+    // Reject hits that lack a threadId entirely: a memory written by another
+    // tool / legacy import / third-party SDK without metadata.threadId would
+    // otherwise leak into every thread that searches the workspace.
     const filtered: Array<{ id: string; content: string; score?: number }> = [];
     for (const r of raw) {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
-      if (meta.threadId !== undefined && meta.threadId !== opts.threadId) {
+      if (meta.threadId !== opts.threadId) {
         continue;
       }
       if (
