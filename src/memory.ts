@@ -134,7 +134,24 @@ export class LedgerMemMemory {
     const raw = (await this.client.search(query, { limit })) as Array<
       Record<string, unknown>
     >;
-    return raw.map((r) => ({
+    // Enforce thread/resource isolation in-app even if the server returns
+    // matches across threads — prevents cross-thread/cross-user context bleed.
+    const filtered = raw.filter((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      if (meta.threadId !== undefined && meta.threadId !== opts.threadId) {
+        return false;
+      }
+      if (
+        opts.resourceId !== undefined &&
+        meta.resourceId !== undefined &&
+        meta.resourceId !== null &&
+        meta.resourceId !== opts.resourceId
+      ) {
+        return false;
+      }
+      return true;
+    });
+    return filtered.map((r) => ({
       id: String(r.id ?? ""),
       content: String(r.content ?? r.text ?? ""),
       score: typeof r.score === "number" ? r.score : undefined,
