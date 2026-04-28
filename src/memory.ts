@@ -8,6 +8,14 @@ export interface LedgerMemMemoryOptions {
   workingWindow?: number;
   /** Default top-k for semantic recall. */
   recallLimit?: number;
+  /**
+   * Maximum number of distinct threads to retain in the in-process working
+   * buffer. When the limit is exceeded the least-recently-used thread is
+   * evicted (its messages are still durable in LedgerMem, only the recent
+   * cache is dropped). Default: 1000. Long-running servers without this
+   * cap leak memory linearly with thread count.
+   */
+  maxThreads?: number;
 }
 
 export interface MemoryMessage {
@@ -54,12 +62,16 @@ export class LedgerMemMemory {
   private readonly client: LedgerMem;
   private readonly workingWindow: number;
   private readonly recallLimit: number;
+  private readonly maxThreads: number;
+  // Map iteration order is insertion order, so re-inserting on access turns
+  // it into a cheap LRU. Bounded so a long-running server doesn't leak.
   private readonly threads = new Map<string, MemoryMessage[]>();
 
   constructor(options: LedgerMemMemoryOptions = {}) {
     this.client = resolveClient(options);
     this.workingWindow = options.workingWindow ?? 20;
     this.recallLimit = options.recallLimit ?? 5;
+    this.maxThreads = Math.max(1, options.maxThreads ?? 1000);
   }
 
   /**
@@ -114,16 +126,28 @@ export class LedgerMemMemory {
   }
 
   private getRecent(threadId: string): MemoryMessage[] {
-    return this.threads.get(threadId) ?? [];
+    const buf = this.threads.get(threadId);
+    if (!buf) return [];
+    // Touch the entry so it counts as recently used for the LRU.
+    this.threads.delete(threadId);
+    this.threads.set(threadId, buf);
+    return buf;
   }
 
   private appendRecent(threadId: string, msg: MemoryMessage): void {
-    const buf = this.threads.get(threadId) ?? [];
+    const existing = this.threads.get(threadId);
+    const buf = existing ?? [];
+    if (existing) this.threads.delete(threadId);
     const next = [...buf, msg];
     if (next.length > this.workingWindow) {
       next.splice(0, next.length - this.workingWindow);
     }
     this.threads.set(threadId, next);
+    while (this.threads.size > this.maxThreads) {
+      const oldest = this.threads.keys().next().value;
+      if (oldest === undefined) break;
+      this.threads.delete(oldest);
+    }
   }
 
   private async semanticRecall(
@@ -131,15 +155,21 @@ export class LedgerMemMemory {
     opts: MemoryRecallOptions,
   ): Promise<Array<{ id: string; content: string; score?: number }>> {
     const limit = opts.limit ?? this.recallLimit;
-    const raw = (await this.client.search(query, { limit })) as Array<
+    // Over-fetch when we know we're going to filter down — otherwise the
+    // thread/resource filter below trims the result set under `limit`,
+    // and a noisy workspace returns near-zero hits even when many memories
+    // belong to the requested thread.
+    const fetchLimit = Math.max(limit * 4, 20);
+    const raw = (await this.client.search(query, { limit: fetchLimit })) as Array<
       Record<string, unknown>
     >;
     // Enforce thread/resource isolation in-app even if the server returns
     // matches across threads — prevents cross-thread/cross-user context bleed.
-    const filtered = raw.filter((r) => {
+    const filtered: Array<{ id: string; content: string; score?: number }> = [];
+    for (const r of raw) {
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       if (meta.threadId !== undefined && meta.threadId !== opts.threadId) {
-        return false;
+        continue;
       }
       if (
         opts.resourceId !== undefined &&
@@ -147,15 +177,16 @@ export class LedgerMemMemory {
         meta.resourceId !== null &&
         meta.resourceId !== opts.resourceId
       ) {
-        return false;
+        continue;
       }
-      return true;
-    });
-    return filtered.map((r) => ({
-      id: String(r.id ?? ""),
-      content: String(r.content ?? r.text ?? ""),
-      score: typeof r.score === "number" ? r.score : undefined,
-    }));
+      filtered.push({
+        id: String(r.id ?? ""),
+        content: String(r.content ?? r.text ?? ""),
+        score: typeof r.score === "number" ? r.score : undefined,
+      });
+      if (filtered.length >= limit) break;
+    }
+    return filtered;
   }
 }
 
