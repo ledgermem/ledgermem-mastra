@@ -1,7 +1,7 @@
 {
-  "name": "@ledgermem/mastra",
+  "name": "@getmnemo/mastra",
   "version": "0.1.0",
-  "description": "LedgerMem memory provider for Mastra agents.",
+  "description": "Mnemo memory provider for Mastra agents.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,15 +17,15 @@
     "test": "vitest run",
     "lint": "tsc --noEmit"
   },
-  "keywords": ["ledgermem", "mastra", "memory", "agent", "rag"],
-  "author": "LedgerMem <founders@proofly.dev>",
+  "keywords": ["getmnemo", "mastra", "memory", "agent", "rag"],
+  "author": "Mnemo <founders@getmnemo.xyz>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ledgermem/ledgermem-mastra.git"
+    "url": "git+https://github.com/getmnemo/getmnemo-mastra.git"
   },
   "dependencies": {
-    "@ledgermem/memory": "^0.1.0"
+    "@getmnemo/memory": "^0.1.0"
   },
   "peerDependencies": {
     "@mastra/core": "^0.4.0"

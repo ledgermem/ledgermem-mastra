@@ -1,7 +1,7 @@
-import { LedgerMem } from "@ledgermem/memory";
+import { Mnemo } from "@getmnemo/memory";
 
-export interface LedgerMemMemoryOptions {
-  client?: LedgerMem;
+export interface MnemoMemoryOptions {
+  client?: Mnemo;
   apiKey?: string;
   workspaceId?: string;
   /** Number of recent messages to keep verbatim in working memory. */
@@ -11,7 +11,7 @@ export interface LedgerMemMemoryOptions {
   /**
    * Maximum number of distinct threads to retain in the in-process working
    * buffer. When the limit is exceeded the least-recently-used thread is
-   * evicted (its messages are still durable in LedgerMem, only the recent
+   * evicted (its messages are still durable in Mnemo, only the recent
    * cache is dropped). Default: 1000. Long-running servers without this
    * cap leak memory linearly with thread count.
    */
@@ -51,15 +51,15 @@ interface RememberMessageInput {
 }
 
 /**
- * Mastra-compatible memory provider backed by LedgerMem.
+ * Mastra-compatible memory provider backed by Mnemo.
  *
  * Mastra agents call `remember()` before generation and `rememberMessage()`
  * after each turn. This class implements both: short-term recent messages
  * are kept in-process per thread; long-term semantic recall is delegated
- * to LedgerMem with `metadata.threadId` / `metadata.resourceId` filters.
+ * to Mnemo with `metadata.threadId` / `metadata.resourceId` filters.
  */
-export class LedgerMemMemory {
-  private readonly client: LedgerMem;
+export class MnemoMemory {
+  private readonly client: Mnemo;
   private readonly workingWindow: number;
   private readonly recallLimit: number;
   private readonly maxThreads: number;
@@ -67,7 +67,7 @@ export class LedgerMemMemory {
   // it into a cheap LRU. Bounded so a long-running server doesn't leak.
   private readonly threads = new Map<string, MemoryMessage[]>();
 
-  constructor(options: LedgerMemMemoryOptions = {}) {
+  constructor(options: MnemoMemoryOptions = {}) {
     this.client = resolveClient(options);
     this.workingWindow = options.workingWindow ?? 20;
     this.recallLimit = options.recallLimit ?? 5;
@@ -94,7 +94,7 @@ export class LedgerMemMemory {
   }
 
   /**
-   * Persist a message: always to the working buffer, and to LedgerMem
+   * Persist a message: always to the working buffer, and to Mnemo
    * for user/assistant turns (system/tool turns are typically noise).
    */
   async rememberMessage(input: RememberMessageInput): Promise<void> {
@@ -120,7 +120,7 @@ export class LedgerMemMemory {
     );
   }
 
-  /** Clear all in-memory threads. Does not delete from LedgerMem. */
+  /** Clear all in-memory threads. Does not delete from Mnemo. */
   reset(): void {
     this.threads.clear();
   }
@@ -193,14 +193,14 @@ export class LedgerMemMemory {
   }
 }
 
-function resolveClient(opts: LedgerMemMemoryOptions): LedgerMem {
+function resolveClient(opts: MnemoMemoryOptions): Mnemo {
   if (opts.client) return opts.client;
-  const apiKey = opts.apiKey ?? process.env.LEDGERMEM_API_KEY;
-  const workspaceId = opts.workspaceId ?? process.env.LEDGERMEM_WORKSPACE_ID;
+  const apiKey = opts.apiKey ?? process.env.GETMNEMO_API_KEY;
+  const workspaceId = opts.workspaceId ?? process.env.GETMNEMO_WORKSPACE_ID;
   if (!apiKey || !workspaceId) {
     throw new Error(
-      "LedgerMemMemory: missing apiKey/workspaceId. Pass them explicitly or set LEDGERMEM_API_KEY and LEDGERMEM_WORKSPACE_ID.",
+      "MnemoMemory: missing apiKey/workspaceId. Pass them explicitly or set GETMNEMO_API_KEY and GETMNEMO_WORKSPACE_ID.",
     );
   }
-  return new LedgerMem({ apiKey, workspaceId });
+  return new Mnemo({ apiKey, workspaceId });
 }

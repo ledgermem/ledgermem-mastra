@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { LedgerMemMemory } from "./memory.js";
+import { MnemoMemory } from "./memory.js";
 
 const search = vi.fn();
 const add = vi.fn();
 
-vi.mock("@ledgermem/memory", () => ({
-  LedgerMem: vi.fn().mockImplementation(() => ({
+vi.mock("@getmnemo/memory", () => ({
+  Mnemo: vi.fn().mockImplementation(() => ({
     search,
     add,
     update: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock("@ledgermem/memory", () => ({
   })),
 }));
 
-describe("LedgerMemMemory", () => {
+describe("MnemoMemory", () => {
   beforeEach(() => {
     search.mockReset();
     add.mockReset();
@@ -25,7 +25,7 @@ describe("LedgerMemMemory", () => {
   });
 
   it("recalls recent buffer + semantic results", async () => {
-    const mem = new LedgerMemMemory({ apiKey: "k", workspaceId: "w" });
+    const mem = new MnemoMemory({ apiKey: "k", workspaceId: "w" });
     await mem.rememberMessage({
       threadId: "t1",
       message: { role: "user", content: "hello" },
@@ -39,8 +39,8 @@ describe("LedgerMemMemory", () => {
     });
   });
 
-  it("only persists user/assistant messages to LedgerMem", async () => {
-    const mem = new LedgerMemMemory({ apiKey: "k", workspaceId: "w" });
+  it("only persists user/assistant messages to Mnemo", async () => {
+    const mem = new MnemoMemory({ apiKey: "k", workspaceId: "w" });
     await mem.rememberMessage({
       threadId: "t1",
       message: { role: "system", content: "sys prompt" },
@@ -54,7 +54,7 @@ describe("LedgerMemMemory", () => {
   });
 
   it("trims working buffer to workingWindow", async () => {
-    const mem = new LedgerMemMemory({
+    const mem = new MnemoMemory({
       apiKey: "k",
       workspaceId: "w",
       workingWindow: 2,
@@ -70,7 +70,7 @@ describe("LedgerMemMemory", () => {
   });
 
   it("skips semantic recall when no query is provided", async () => {
-    const mem = new LedgerMemMemory({ apiKey: "k", workspaceId: "w" });
+    const mem = new MnemoMemory({ apiKey: "k", workspaceId: "w" });
     const out = await mem.remember({ threadId: "t1" });
     expect(out.semantic).toEqual([]);
     expect(search).not.toHaveBeenCalled();

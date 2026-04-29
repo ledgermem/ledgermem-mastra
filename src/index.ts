@@ -1,6 +1,6 @@
 export {
-  LedgerMemMemory,
-  type LedgerMemMemoryOptions,
+  MnemoMemory,
+  type MnemoMemoryOptions,
   type MemoryThread,
   type MemoryMessage,
   type MemoryRecallOptions,
