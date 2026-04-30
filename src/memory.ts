@@ -1,4 +1,4 @@
-import { Mnemo } from "@getmnemo/memory";
+import { Mnemo } from "@mnemo/memory";
 
 export interface MnemoMemoryOptions {
   client?: Mnemo;
