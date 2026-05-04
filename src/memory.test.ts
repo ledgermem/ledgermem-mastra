@@ -4,7 +4,7 @@ import { MnemoMemory } from "./memory.js";
 const search = vi.fn();
 const add = vi.fn();
 
-vi.mock("@mnemo/memory", () => ({
+vi.mock("getmnemo", () => ({
   Mnemo: vi.fn().mockImplementation(() => ({
     search,
     add,

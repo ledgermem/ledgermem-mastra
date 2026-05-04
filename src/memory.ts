@@ -1,4 +1,4 @@
-import { Mnemo } from "@mnemo/memory";
+import { Mnemo } from "getmnemo";
 
 export interface MnemoMemoryOptions {
   client?: Mnemo;
@@ -102,8 +102,7 @@ export class MnemoMemory {
     if (input.message.role !== "user" && input.message.role !== "assistant") {
       return;
     }
-    await this.client.add(input.message.content, {
-      metadata: {
+    await this.client.add({ content: input.message.content, metadata: {
         threadId: input.threadId,
         resourceId: input.resourceId ?? null,
         role: input.message.role,
@@ -160,9 +159,7 @@ export class MnemoMemory {
     // and a noisy workspace returns near-zero hits even when many memories
     // belong to the requested thread.
     const fetchLimit = Math.max(limit * 4, 20);
-    const raw = (await this.client.search(query, { limit: fetchLimit })) as Array<
-      Record<string, unknown>
-    >;
+    const raw = ((await this.client.search({ query, limit: fetchLimit })).hits as unknown as Array<Record<string, unknown>>);
     // Enforce thread/resource isolation in-app even if the server returns
     // matches across threads — prevents cross-thread/cross-user context bleed.
     // Reject hits that lack a threadId entirely: a memory written by another
